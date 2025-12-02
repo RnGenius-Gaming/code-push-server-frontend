@@ -4,6 +4,7 @@ import { Card, Button, Empty, Space, Typography, Table, Tag, Modal, Form, Input,
 import { PlusOutlined, RocketOutlined, CopyOutlined } from '@ant-design/icons';
 import { DashboardLayout } from '../components/layout/DashboardLayout';
 import { deploymentsService } from '../services/deployments.service';
+import { appsService, type App } from '../services/apps.service';
 import type { Deployment } from '../services/deployments.service';
 import type { ColumnsType } from 'antd/es/table';
 
@@ -16,6 +17,7 @@ export const Deployments: React.FC = () => {
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
   const [deployments, setDeployments] = useState<Deployment[]>([]);
+  const [apps, setApps] = useState<App[]>([]);
   const [fetchLoading, setFetchLoading] = useState(true);
   const [editingDeployment, setEditingDeployment] = useState<Deployment | null>(null);
 
@@ -31,8 +33,18 @@ export const Deployments: React.FC = () => {
     }
   };
 
+  const fetchApps = async () => {
+    try {
+      const data = await appsService.findAll();
+      setApps(data);
+    } catch (error) {
+      message.error('Failed to fetch apps');
+    }
+  };
+
   useEffect(() => {
     fetchDeployments();
+    fetchApps();
   }, []);
 
   const handleCreateDeployment = () => {
@@ -244,9 +256,17 @@ export const Deployments: React.FC = () => {
               name="appName"
               rules={[{ required: true, message: 'Please select an app!' }]}
             >
-              <Select placeholder="Select an app">
-                <Option value="MyApp-iOS">MyApp-iOS</Option>
-                <Option value="MyApp-Android">MyApp-Android</Option>
+              <Select
+                placeholder="Select an app"
+                showSearch
+                optionFilterProp="children"
+                notFoundContent={apps.length === 0 ? "No apps found. Please create an app first." : "No matching apps"}
+              >
+                {apps.map((app) => (
+                  <Option key={app.id} value={app.appName}>
+                    {app.appName} ({app.platform})
+                  </Option>
+                ))}
               </Select>
             </Form.Item>
 
