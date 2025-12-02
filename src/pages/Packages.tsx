@@ -19,7 +19,6 @@ import {
   Statistic,
   Row,
   Col,
-  Popconfirm,
   Tooltip,
   Dropdown,
   Alert,
@@ -34,7 +33,6 @@ import {
   StopOutlined,
   CheckOutlined,
   DeleteOutlined,
-  CloseCircleOutlined,
 } from '@ant-design/icons';
 import { DashboardLayout } from '../components/layout/DashboardLayout';
 import { packagesService, type Package } from '../services/packages.service';
@@ -42,7 +40,7 @@ import { deploymentsService, type Deployment } from '../services/deployments.ser
 import type { ColumnsType } from 'antd/es/table';
 import type { UploadFile } from 'antd/es/upload/interface';
 
-const { Title, Paragraph, Text } = Typography;
+const { Title, Paragraph } = Typography;
 const { Dragger } = Upload;
 const { Option } = Select;
 

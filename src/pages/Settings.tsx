@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Card, Form, Input, Button, Switch, Space, Typography, Divider, message, Select } from 'antd';
-import { SettingOutlined, KeyOutlined, BellOutlined, GlobalOutlined } from '@ant-design/icons';
+import { KeyOutlined, BellOutlined, GlobalOutlined } from '@ant-design/icons';
 import { DashboardLayout } from '../components/layout/DashboardLayout';
 
 const { Title, Paragraph } = Typography;

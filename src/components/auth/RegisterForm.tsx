@@ -1,9 +1,8 @@
 import React from 'react';
 import { Form, Input, Button, Card } from 'antd';
-import { UserOutlined, LockOutlined, MailOutlined } from '@ant-design/icons';
+import { LockOutlined, MailOutlined } from '@ant-design/icons';
 import { useAuth } from '../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import type { RegisterRequest } from '../../types/auth';
 
 export const RegisterForm: React.FC = () => {
   const { register, isLoading } = useAuth();
