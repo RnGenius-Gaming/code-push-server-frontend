@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, Button, Empty, Space, Typography, Modal, Form, Input, Select, message, Table } from 'antd';
 import { PlusOutlined, AppstoreOutlined } from '@ant-design/icons';
 import { DashboardLayout } from '../components/layout/DashboardLayout';
@@ -10,6 +11,7 @@ const { Title, Paragraph } = Typography;
 const { Option } = Select;
 
 export const Apps: React.FC = () => {
+  const navigate = useNavigate();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
@@ -93,8 +95,13 @@ export const Apps: React.FC = () => {
       key: 'actions',
       render: (_, record) => (
         <Space>
-          <Button type="link" size="small">View</Button>
-          <Button type="link" size="small">Edit</Button>
+          <Button
+            type="link"
+            size="small"
+            onClick={() => navigate(`/deployments?appName=${encodeURIComponent(record.appName)}`)}
+          >
+            Deployments
+          </Button>
           <Button type="link" size="small" danger onClick={() => handleDelete(record.id)}>Delete</Button>
         </Space>
       ),

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Card, Button, Empty, Space, Typography, Table, Tag, Modal, Form, Input, Select, Switch, message, Tooltip } from 'antd';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Card, Button, Empty, Space, Typography, Table, Tag, Modal, Form, Input, Select, Switch, message, Tooltip, Alert } from 'antd';
 import { PlusOutlined, RocketOutlined, CopyOutlined } from '@ant-design/icons';
 import { DashboardLayout } from '../components/layout/DashboardLayout';
 import { deploymentsService } from '../services/deployments.service';
@@ -13,6 +13,8 @@ const { Option} = Select;
 
 export const Deployments: React.FC = () => {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const appNameFilter = searchParams.get('appName');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
@@ -51,7 +53,20 @@ export const Deployments: React.FC = () => {
     setEditingDeployment(null);
     setIsModalOpen(true);
     form.resetFields();
+    // Pre-select app if filtering by appName
+    if (appNameFilter) {
+      form.setFieldsValue({ appName: appNameFilter });
+    }
   };
+
+  const clearFilter = () => {
+    setSearchParams({});
+  };
+
+  // Filter deployments based on appName query param
+  const filteredDeployments = appNameFilter
+    ? deployments.filter(dep => dep.appName === appNameFilter)
+    : deployments;
 
   const handleEdit = (deployment: Deployment) => {
     setEditingDeployment(deployment);
@@ -198,21 +213,41 @@ export const Deployments: React.FC = () => {
           </Button>
         </Space>
 
-        {deployments.length === 0 ? (
+        {appNameFilter && (
+          <Alert
+            message={`Showing deployments for: ${appNameFilter}`}
+            type="info"
+            showIcon
+            closable
+            onClose={clearFilter}
+            style={{ marginBottom: 16 }}
+            action={
+              <Button size="small" onClick={clearFilter}>
+                Show All
+              </Button>
+            }
+          />
+        )}
+
+        {filteredDeployments.length === 0 ? (
           <Card>
             <Empty
               image={<RocketOutlined style={{ fontSize: 64, color: '#d9d9d9' }} />}
               description={
                 <div>
-                  <Paragraph strong>No deployments yet</Paragraph>
+                  <Paragraph strong>
+                    {appNameFilter ? `No deployments for ${appNameFilter}` : 'No deployments yet'}
+                  </Paragraph>
                   <Paragraph type="secondary">
-                    Create a deployment to start pushing updates to your users
+                    {appNameFilter
+                      ? 'Create a deployment for this app to start pushing updates'
+                      : 'Create a deployment to start pushing updates to your users'}
                   </Paragraph>
                 </div>
               }
             >
               <Button type="primary" icon={<PlusOutlined />} onClick={handleCreateDeployment}>
-                Create Your First Deployment
+                {appNameFilter ? 'Create Deployment' : 'Create Your First Deployment'}
               </Button>
             </Empty>
           </Card>
@@ -220,7 +255,7 @@ export const Deployments: React.FC = () => {
           <Card>
             <Table
               columns={columns}
-              dataSource={deployments}
+              dataSource={filteredDeployments}
               rowKey="id"
               loading={fetchLoading}
             />
