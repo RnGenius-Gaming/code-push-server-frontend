@@ -10,6 +10,7 @@ import { Deployments } from './pages/Deployments';
 import { Packages } from './pages/Packages';
 import { Profile } from './pages/Profile';
 import { Settings } from './pages/Settings';
+import { AuditLogs } from './pages/AuditLogs';
 
 function App() {
   return (
@@ -70,6 +71,14 @@ function App() {
               element={
                 <ProtectedRoute>
                   <Settings />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/audit-logs"
+              element={
+                <ProtectedRoute>
+                  <AuditLogs />
                 </ProtectedRoute>
               }
             />

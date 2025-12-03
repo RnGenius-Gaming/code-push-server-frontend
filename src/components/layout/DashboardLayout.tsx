@@ -9,6 +9,7 @@ import {
   LogoutOutlined,
   MenuFoldOutlined,
   MenuUnfoldOutlined,
+  HistoryOutlined,
 } from '@ant-design/icons';
 import { useAuth } from '../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -56,6 +57,9 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
       case 'packages':
         navigate('/packages');
         break;
+      case 'audit-logs':
+        navigate('/audit-logs');
+        break;
       case 'settings':
         navigate('/settings');
         break;
@@ -98,6 +102,11 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
       key: 'packages',
       icon: <InboxOutlined />,
       label: 'Packages',
+    },
+    {
+      key: 'audit-logs',
+      icon: <HistoryOutlined />,
+      label: 'Audit Logs',
     },
     {
       key: 'settings',
