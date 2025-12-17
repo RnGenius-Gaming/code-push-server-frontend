@@ -22,6 +22,8 @@ import {
   Tooltip,
   Dropdown,
   Alert,
+  Descriptions,
+  Spin,
 } from 'antd';
 import {
   PlusOutlined,
@@ -33,10 +35,16 @@ import {
   StopOutlined,
   CheckOutlined,
   DeleteOutlined,
+  UserOutlined,
+  RiseOutlined,
+  FallOutlined,
+  MobileOutlined,
 } from '@ant-design/icons';
 import { DashboardLayout } from '../components/layout/DashboardLayout';
 import { packagesService, type Package } from '../services/packages.service';
 import { deploymentsService, type Deployment } from '../services/deployments.service';
+import { metricsService } from '../services/metrics.service';
+import type { PackageMetrics } from '../types/metrics';
 import type { ColumnsType } from 'antd/es/table';
 import type { UploadFile } from 'antd/es/upload/interface';
 
@@ -55,6 +63,9 @@ export const Packages: React.FC = () => {
   const [fetchLoading, setFetchLoading] = useState(true);
   const [fileList, setFileList] = useState<UploadFile[]>([]);
   const [selectedDeploymentId, setSelectedDeploymentId] = useState<string>('');
+  const [packageMetrics, setPackageMetrics] = useState<Record<string, PackageMetrics>>({});
+  const [metricsLoading, setMetricsLoading] = useState<Record<string, boolean>>({});
+  const [expandedRowKeys, setExpandedRowKeys] = useState<string[]>([]);
 
   const fetchPackages = async () => {
     try {
@@ -86,6 +97,27 @@ export const Packages: React.FC = () => {
       setDeployments(data);
     } catch (error) {
       message.error('Failed to fetch deployments');
+    }
+  };
+
+  const fetchPackageMetrics = async (packageId: string) => {
+    try {
+      setMetricsLoading(prev => ({ ...prev, [packageId]: true }));
+      const metrics = await metricsService.getPackageMetrics(packageId);
+      setPackageMetrics(prev => ({ ...prev, [packageId]: metrics }));
+    } catch (error: any) {
+      // Only show error if it's not a 404 (no metrics yet)
+      if (error.response?.status !== 404) {
+        console.error('Failed to fetch metrics for package:', packageId, error);
+      }
+    } finally {
+      setMetricsLoading(prev => ({ ...prev, [packageId]: false }));
+    }
+  };
+
+  const handleExpand = (expanded: boolean, record: Package) => {
+    if (expanded && !packageMetrics[record.id]) {
+      fetchPackageMetrics(record.id);
     }
   };
 
@@ -261,6 +293,36 @@ export const Packages: React.FC = () => {
       render: (date: string) => new Date(date).toLocaleString(),
     },
     {
+      title: 'Metrics',
+      key: 'metrics',
+      align: 'center' as const,
+      render: (_, record) => {
+        const metrics = packageMetrics[record.id];
+        if (!metrics) {
+          return (
+            <Button
+              size="small"
+              type="link"
+              onClick={() => fetchPackageMetrics(record.id)}
+              loading={metricsLoading[record.id]}
+            >
+              Load Metrics
+            </Button>
+          );
+        }
+        return (
+          <Space direction="vertical" size="small" style={{ fontSize: '12px' }}>
+            <Tooltip title="Active devices running this version">
+              <div><MobileOutlined /> {metrics.activeDevices} devices</div>
+            </Tooltip>
+            <Tooltip title="Total downloads">
+              <div><DownloadOutlined /> {metrics.totalDownloads} downloads</div>
+            </Tooltip>
+          </Space>
+        );
+      },
+    },
+    {
       title: 'Actions',
       key: 'actions',
       width: 80,
@@ -315,6 +377,129 @@ export const Packages: React.FC = () => {
       },
     },
   ];
+
+  const expandedRowRender = (record: Package) => {
+    const metrics = packageMetrics[record.id];
+    const loading = metricsLoading[record.id];
+
+    if (loading) {
+      return (
+        <div style={{ textAlign: 'center', padding: '20px' }}>
+          <Spin tip="Loading metrics..." />
+        </div>
+      );
+    }
+
+    if (!metrics) {
+      return (
+        <div style={{ textAlign: 'center', padding: '20px' }}>
+          <Empty description="No metrics available yet">
+            <Button
+              type="primary"
+              size="small"
+              onClick={() => fetchPackageMetrics(record.id)}
+            >
+              Load Metrics
+            </Button>
+          </Empty>
+        </div>
+      );
+    }
+
+    return (
+      <Card bordered={false} style={{ backgroundColor: '#fafafa' }}>
+        <Title level={5}>Package Metrics - {record.label}</Title>
+        <Row gutter={16} style={{ marginBottom: 16 }}>
+          <Col span={6}>
+            <Card>
+              <Statistic
+                title="Active Devices"
+                value={metrics.activeDevices}
+                prefix={<MobileOutlined />}
+                valueStyle={{ color: '#3f8600' }}
+              />
+              {metrics.adoptionRate !== undefined && (
+                <div style={{ marginTop: 8, fontSize: '12px', color: '#666' }}>
+                  {metrics.adoptionRate}% adoption rate
+                </div>
+              )}
+            </Card>
+          </Col>
+          <Col span={6}>
+            <Card>
+              <Statistic
+                title="Total Downloads"
+                value={metrics.totalDownloads}
+                prefix={<DownloadOutlined />}
+                valueStyle={{ color: '#1890ff' }}
+              />
+            </Card>
+          </Col>
+          <Col span={6}>
+            <Card>
+              <Statistic
+                title="Successful Installs"
+                value={metrics.totalInstalls}
+                prefix={<CheckCircleOutlined />}
+                valueStyle={{ color: '#52c41a' }}
+              />
+            </Card>
+          </Col>
+          <Col span={6}>
+            <Card>
+              <Statistic
+                title="Confirmed Updates"
+                value={metrics.totalConfirmed}
+                prefix={<UserOutlined />}
+                valueStyle={{ color: '#722ed1' }}
+              />
+            </Card>
+          </Col>
+        </Row>
+
+        <Row gutter={16}>
+          <Col span={12}>
+            <Descriptions title="Update Statistics" bordered column={1} size="small">
+              <Descriptions.Item label="Total Rollbacks">
+                <Tag color="orange" icon={<FallOutlined />}>
+                  {metrics.totalRollbacks}
+                </Tag>
+              </Descriptions.Item>
+              <Descriptions.Item label="Failed Installs">
+                <Tag color="red" icon={<StopOutlined />}>
+                  {metrics.totalFailed}
+                </Tag>
+              </Descriptions.Item>
+              <Descriptions.Item label="Success Rate">
+                {metrics.totalDownloads > 0 ? (
+                  <Tag color="green" icon={<RiseOutlined />}>
+                    {Math.round((metrics.totalInstalls / metrics.totalDownloads) * 100)}%
+                  </Tag>
+                ) : (
+                  <Tag>N/A</Tag>
+                )}
+              </Descriptions.Item>
+            </Descriptions>
+          </Col>
+          <Col span={12}>
+            <Descriptions title="Package Details" bordered column={1} size="small">
+              <Descriptions.Item label="Package Hash">
+                <Typography.Text code copyable style={{ fontSize: '11px' }}>
+                  {metrics.packageHash.substring(0, 16)}...
+                </Typography.Text>
+              </Descriptions.Item>
+              <Descriptions.Item label="App Version">
+                <Tag color="blue">{metrics.appVersion}</Tag>
+              </Descriptions.Item>
+              <Descriptions.Item label="Label">
+                <Tag>{metrics.label}</Tag>
+              </Descriptions.Item>
+            </Descriptions>
+          </Col>
+        </Row>
+      </Card>
+    );
+  };
 
   return (
     <DashboardLayout>
@@ -401,6 +586,12 @@ export const Packages: React.FC = () => {
               dataSource={filteredPackages}
               rowKey="id"
               loading={fetchLoading}
+              expandable={{
+                expandedRowRender,
+                onExpand: handleExpand,
+                expandedRowKeys,
+                onExpandedRowsChange: (keys) => setExpandedRowKeys(keys as string[]),
+              }}
             />
           </Card>
         )}

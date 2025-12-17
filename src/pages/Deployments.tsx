@@ -1,11 +1,44 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Card, Button, Empty, Space, Typography, Table, Tag, Modal, Form, Input, Select, Switch, message, Tooltip, Alert } from 'antd';
-import { PlusOutlined, RocketOutlined, CopyOutlined } from '@ant-design/icons';
+import {
+  Card,
+  Button,
+  Empty,
+  Space,
+  Typography,
+  Table,
+  Tag,
+  Modal,
+  Form,
+  Input,
+  Select,
+  Switch,
+  message,
+  Tooltip,
+  Alert,
+  Statistic,
+  Row,
+  Col,
+  Spin,
+  Descriptions,
+  Progress,
+} from 'antd';
+import {
+  PlusOutlined,
+  RocketOutlined,
+  CopyOutlined,
+  MobileOutlined,
+  DownloadOutlined,
+  CheckCircleOutlined,
+  UserOutlined,
+  CloudUploadOutlined,
+} from '@ant-design/icons';
 import { DashboardLayout } from '../components/layout/DashboardLayout';
 import { deploymentsService } from '../services/deployments.service';
 import { appsService, type App } from '../services/apps.service';
+import { metricsService } from '../services/metrics.service';
 import type { Deployment } from '../services/deployments.service';
+import type { DeploymentMetrics } from '../types/metrics';
 import type { ColumnsType } from 'antd/es/table';
 
 const { Title, Paragraph } = Typography;
@@ -22,6 +55,9 @@ export const Deployments: React.FC = () => {
   const [apps, setApps] = useState<App[]>([]);
   const [fetchLoading, setFetchLoading] = useState(true);
   const [editingDeployment, setEditingDeployment] = useState<Deployment | null>(null);
+  const [deploymentMetrics, setDeploymentMetrics] = useState<Record<string, DeploymentMetrics>>({});
+  const [metricsLoading, setMetricsLoading] = useState<Record<string, boolean>>({});
+  const [expandedRowKeys, setExpandedRowKeys] = useState<string[]>([]);
 
   const fetchDeployments = async () => {
     try {
@@ -41,6 +77,27 @@ export const Deployments: React.FC = () => {
       setApps(data);
     } catch (error) {
       message.error('Failed to fetch apps');
+    }
+  };
+
+  const fetchDeploymentMetrics = async (deploymentId: string) => {
+    try {
+      setMetricsLoading(prev => ({ ...prev, [deploymentId]: true }));
+      const metrics = await metricsService.getDeploymentMetrics(deploymentId);
+      setDeploymentMetrics(prev => ({ ...prev, [deploymentId]: metrics }));
+    } catch (error: any) {
+      // Only show error if it's not a 404 (no metrics yet)
+      if (error.response?.status !== 404) {
+        console.error('Failed to fetch metrics for deployment:', deploymentId, error);
+      }
+    } finally {
+      setMetricsLoading(prev => ({ ...prev, [deploymentId]: false }));
+    }
+  };
+
+  const handleExpand = (expanded: boolean, record: Deployment) => {
+    if (expanded && !deploymentMetrics[record.id]) {
+      fetchDeploymentMetrics(record.id);
     }
   };
 
@@ -203,6 +260,208 @@ export const Deployments: React.FC = () => {
     },
   ];
 
+  const expandedRowRender = (record: Deployment) => {
+    const metrics = deploymentMetrics[record.id];
+    const loading = metricsLoading[record.id];
+
+    if (loading) {
+      return (
+        <div style={{ textAlign: 'center', padding: '20px' }}>
+          <Spin tip="Loading metrics..." />
+        </div>
+      );
+    }
+
+    if (!metrics) {
+      return (
+        <div style={{ textAlign: 'center', padding: '20px' }}>
+          <Empty description="No metrics available yet">
+            <Button
+              type="primary"
+              size="small"
+              onClick={() => fetchDeploymentMetrics(record.id)}
+            >
+              Load Metrics
+            </Button>
+          </Empty>
+        </div>
+      );
+    }
+
+    return (
+      <Card bordered={false} style={{ backgroundColor: '#fafafa' }}>
+        <Title level={5}>
+          Deployment Metrics - {record.appName} / {record.deploymentName}
+        </Title>
+
+        {/* Overall Deployment Statistics */}
+        <Row gutter={16} style={{ marginBottom: 24 }}>
+          <Col span={6}>
+            <Card>
+              <Statistic
+                title="Total Active Devices"
+                value={metrics.totalActiveDevices}
+                prefix={<MobileOutlined />}
+                valueStyle={{ color: '#3f8600' }}
+              />
+            </Card>
+          </Col>
+          <Col span={6}>
+            <Card>
+              <Statistic
+                title="Total Packages"
+                value={metrics.packages.length}
+                prefix={<CloudUploadOutlined />}
+                valueStyle={{ color: '#1890ff' }}
+              />
+            </Card>
+          </Col>
+          <Col span={6}>
+            <Card>
+              <Statistic
+                title="Total Downloads"
+                value={metrics.packages.reduce((sum, p) => sum + p.totalDownloads, 0)}
+                prefix={<DownloadOutlined />}
+                valueStyle={{ color: '#722ed1' }}
+              />
+            </Card>
+          </Col>
+          <Col span={6}>
+            <Card>
+              <Statistic
+                title="Total Installs"
+                value={metrics.packages.reduce((sum, p) => sum + p.totalInstalls, 0)}
+                prefix={<CheckCircleOutlined />}
+                valueStyle={{ color: '#52c41a' }}
+              />
+            </Card>
+          </Col>
+        </Row>
+
+        {/* Version Distribution */}
+        {metrics.versionDistribution.length > 0 && (
+          <Card title="Version Distribution" size="small" style={{ marginBottom: 16 }}>
+            <Row gutter={16}>
+              {metrics.versionDistribution.map((dist, index) => (
+                <Col span={8} key={index}>
+                  <Card size="small">
+                    <Statistic
+                      title={`${dist.appVersion} (${dist.packageLabel || 'native'})`}
+                      value={dist.percentage}
+                      suffix="%"
+                      valueStyle={{ fontSize: '20px' }}
+                    />
+                    <Progress
+                      percent={dist.percentage}
+                      strokeColor={
+                        dist.percentage > 70
+                          ? '#52c41a'
+                          : dist.percentage > 30
+                          ? '#1890ff'
+                          : '#faad14'
+                      }
+                      showInfo={false}
+                      style={{ marginTop: 8 }}
+                    />
+                    <div style={{ marginTop: 4, fontSize: '12px', color: '#666' }}>
+                      {dist.deviceCount} devices
+                    </div>
+                  </Card>
+                </Col>
+              ))}
+            </Row>
+          </Card>
+        )}
+
+        {/* Package Metrics Table */}
+        {metrics.packages.length > 0 && (
+          <Card title="Package Performance" size="small">
+            <Table
+              size="small"
+              dataSource={metrics.packages}
+              rowKey="packageId"
+              pagination={false}
+              columns={[
+                {
+                  title: 'Label',
+                  dataIndex: 'label',
+                  key: 'label',
+                  render: (label: string) => <Tag color="blue">{label}</Tag>,
+                },
+                {
+                  title: 'App Version',
+                  dataIndex: 'appVersion',
+                  key: 'appVersion',
+                },
+                {
+                  title: 'Active Devices',
+                  dataIndex: 'activeDevices',
+                  key: 'activeDevices',
+                  render: (value: number, record: any) => (
+                    <div>
+                      <div><MobileOutlined /> {value}</div>
+                      {record.adoptionRate !== undefined && (
+                        <div style={{ fontSize: '11px', color: '#666' }}>
+                          {record.adoptionRate}% adoption
+                        </div>
+                      )}
+                    </div>
+                  ),
+                },
+                {
+                  title: 'Downloads',
+                  dataIndex: 'totalDownloads',
+                  key: 'totalDownloads',
+                },
+                {
+                  title: 'Installs',
+                  dataIndex: 'totalInstalls',
+                  key: 'totalInstalls',
+                  render: (installs: number, record: any) => {
+                    const successRate =
+                      record.totalDownloads > 0
+                        ? Math.round((installs / record.totalDownloads) * 100)
+                        : 0;
+                    return (
+                      <div>
+                        <div>{installs}</div>
+                        <Tag
+                          color={successRate >= 90 ? 'green' : successRate >= 70 ? 'orange' : 'red'}
+                          style={{ fontSize: '10px' }}
+                        >
+                          {successRate}% success
+                        </Tag>
+                      </div>
+                    );
+                  },
+                },
+                {
+                  title: 'Confirmed',
+                  dataIndex: 'totalConfirmed',
+                  key: 'totalConfirmed',
+                },
+                {
+                  title: 'Failed',
+                  dataIndex: 'totalFailed',
+                  key: 'totalFailed',
+                  render: (failed: number) =>
+                    failed > 0 ? <Tag color="red">{failed}</Tag> : <Tag>{failed}</Tag>,
+                },
+                {
+                  title: 'Rollbacks',
+                  dataIndex: 'totalRollbacks',
+                  key: 'totalRollbacks',
+                  render: (rollbacks: number) =>
+                    rollbacks > 0 ? <Tag color="orange">{rollbacks}</Tag> : <Tag>{rollbacks}</Tag>,
+                },
+              ]}
+            />
+          </Card>
+        )}
+      </Card>
+    );
+  };
+
   return (
     <DashboardLayout>
       <div>
@@ -258,6 +517,12 @@ export const Deployments: React.FC = () => {
               dataSource={filteredDeployments}
               rowKey="id"
               loading={fetchLoading}
+              expandable={{
+                expandedRowRender,
+                onExpand: handleExpand,
+                expandedRowKeys,
+                onExpandedRowsChange: (keys) => setExpandedRowKeys(keys as string[]),
+              }}
             />
           </Card>
         )}
