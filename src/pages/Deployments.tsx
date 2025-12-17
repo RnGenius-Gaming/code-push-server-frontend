@@ -20,7 +20,6 @@ import {
   Row,
   Col,
   Spin,
-  Descriptions,
   Progress,
 } from 'antd';
 import {
@@ -30,7 +29,6 @@ import {
   MobileOutlined,
   DownloadOutlined,
   CheckCircleOutlined,
-  UserOutlined,
   CloudUploadOutlined,
 } from '@ant-design/icons';
 import { DashboardLayout } from '../components/layout/DashboardLayout';
